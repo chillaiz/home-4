@@ -20,6 +20,6 @@ from home import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/posts/', views.post_view),
-    path('api/v1/posts/<int:id>', views.post_view_id),
-    path('api/v1/posts/<int:id>/comments', views.post_view_id_comments),
+    path('api/v1/posts/<int:id>/', views.post_view_id),
+    path('api/v1/posts/<int:id>/comments/', views.post_view_id_comments),
 ]
