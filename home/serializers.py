@@ -3,16 +3,22 @@ from .models import Post
 from .models import Comment
 
 
-class PostListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Post
-        fields = '__all__'
-
-
 class CommentTextSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ' text'.split()
+
+
+class PostListSerializer(serializers.ModelSerializer):
+    comment = CommentTextSerializer(many=True)
+    comment_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = 'title text create_data comment comment_count'.split()
+
+    def get_comment_count(self, obj):
+        return obj.comment.count()
 
 
 class PostCommentsSerializer(serializers.ModelSerializer):

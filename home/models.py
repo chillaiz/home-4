@@ -8,13 +8,14 @@ class Post(models.Model):
     text = models.TextField(null=True)
     create_data = models.TextField(null=True)
 
+
     def __str__(self):
         return self.title
 
 
 class Comment(models.Model):
     post = models.ForeignKey(Post,
-                             on_delete=models.CASCADE, null=True)
+                             on_delete=models.CASCADE, null=True, related_name='comment')
     text = models.TextField(null=True)
 
     def __str__(self):
