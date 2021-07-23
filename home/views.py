@@ -4,12 +4,14 @@ from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from home.serializers import PostListSerializer, PostCommentsSerializer, PostValidateSerializer, \
     CommentValidateSerializer, UserRegisterValidateSerializer, UserLoginValidateSerializer
-from home.models import Post
+from home.models import Post, IsLike
 from home.models import Comment
+
 
 
 @api_view(['GET'])
@@ -18,52 +20,47 @@ def post_view(request):
     data = PostListSerializer(post, many=True).data
     return Response(data={'list': data})
 
-
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-def post_view_id(request, id):
-    if request.method == 'GET':
-        post = Post.objects.get(id=id)
-        data = PostListSerializer(post, many=False).data
-        return Response(data={'list': data})
-    elif request.method == 'POST':
+def post_view_id(request):
+    if request.method == "POST":
+
         serializer = PostValidateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
                 status=status.HTTP_406_NOT_ACCEPTABLE,
                 data={
                     'message': 'ERROR',
-                    'error': serializer.errors
+                    'errors': serializer.errors
                 }
             )
         post = Post.objects.create(
-            title=serializers.validated_data['title'],
-            text=serializers.validated_data['text'],
-            create_data=serializers.validated_data['create_data']
+            title=request.validated_data["title"],
+            text=request.validated_data["text"],
+            like_count=serializer.validated_data['favourite_count'],
         )
+        post.hash_tag.set(serializer.validated_data['tags'])
         post.save()
-        return Response()
+        return Response(data={'message': 'created'})
+    else:
+        posts = Post.objects.all()
+        data = PostListSerializer(posts, many=True, context={"request": request}).data
+        return Response(data={'list': data})
 
 
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 def post_view_id_comments(request, id):
-    if request.method == 'GET':
+    try:
         post = Post.objects.get(id=id)
-        data = PostCommentsSerializer(post, many=False).data
+    except Post.DoesNotExist:
+        raise NotFound('Not found')
+    if request.method == 'GET':
+        data = PostListSerializer(post, many=False).data
         return Response(data=data)
     elif request.method == 'POST':
-        serializer = CommentValidateSerializer(data=request.data)
-        if not serializer.is_valid():
-                    return Response(
-                        status=status.HTTP_406_NOT_ACCEPTABLE,
-                        data={
-                            'message': 'ERROR',
-                            'error': serializer.errors
-                        }
-                    )
-        text = request.data.get('comment', '')
-        Comment.objects.create(text=text)
-        return Response(data={'message': 'created'})
+        IsLike.objects.create(post=post,
+                              user=request.user)
+        return Response(data={'message': 'Post was liked'})
+
 
 @api_view(['POST'])
 def login(request):
@@ -75,17 +72,17 @@ def login(request):
                 data={
                     'massage': "error",
                     'errors': serializer.errors
-                 }
+                }
             )
         username = request.data['username']
         password = request.data['password']
-        user = auth.autenticate(username=username, password=password)
+        user = auth.authenticate(username=username, password=password)
         if user:
             try:
                 token = Token.objects.get_or_create(user=user)
             except:
                 token = Token.objects.create(user=user)
-                return Response(data={'key': token.key})
+            return Response(data={'key': token.key})
         else:
             return Response(data={'massege': 'USER NOT FOUND'})
 
@@ -100,7 +97,7 @@ def register(request):
                 data={
                     'massage': "error",
                     'errors': serializer.errors
-                 }
+                }
             )
         User.objects.create_user(
             username=request.data['username'],
